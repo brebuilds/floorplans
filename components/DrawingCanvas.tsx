@@ -256,9 +256,9 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
           });
         });
       } else {
-        canvas.setBackgroundImage(null, () => {
-          loadFloorplanElements(canvas);
-        });
+        canvas.backgroundImage = undefined;
+        canvas.renderAll();
+        loadFloorplanElements(canvas);
       }
     };
 

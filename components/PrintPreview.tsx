@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { X, Download, FileText, Printer } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -17,6 +17,33 @@ export default function PrintPreview({ isOpen, onClose }: PrintPreviewProps) {
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
   const previewRef = useRef<HTMLDivElement>(null);
   const floorplan = getCurrentFloorplan();
+
+  // Load canvas into preview on mount/update
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fabricCanvas = (window as any).fabricCanvas;
+    const previewCanvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
+
+    if (fabricCanvas && previewCanvas) {
+      const ctx = previewCanvas.getContext('2d');
+      if (ctx) {
+        const dataURL = fabricCanvas.toDataURL({
+          format: 'png',
+          quality: 1,
+          multiplier: 1,
+        });
+
+        const img = new Image();
+        img.onload = () => {
+          previewCanvas.width = img.width;
+          previewCanvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = dataURL;
+      }
+    }
+  }, [isOpen, scale, orientation]);
 
   if (!isOpen || !floorplan) return null;
 
@@ -64,33 +91,6 @@ export default function PrintPreview({ isOpen, onClose }: PrintPreviewProps) {
       console.error(error);
     }
   };
-
-  // Load canvas into preview on mount/update
-  React.useEffect(() => {
-    if (!isOpen) return;
-    
-    const fabricCanvas = (window as any).fabricCanvas;
-    const previewCanvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
-    
-    if (fabricCanvas && previewCanvas) {
-      const ctx = previewCanvas.getContext('2d');
-      if (ctx) {
-        const dataURL = fabricCanvas.toDataURL({
-          format: 'png',
-          quality: 1,
-          multiplier: 1,
-        });
-        
-        const img = new Image();
-        img.onload = () => {
-          previewCanvas.width = img.width;
-          previewCanvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = dataURL;
-      }
-    }
-  }, [isOpen, scale, orientation]);
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');

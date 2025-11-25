@@ -78,7 +78,7 @@ export default function FurnitureLibrary({ onSelectFurniture }: FurnitureLibrary
           >
             {item.icon}
             <span className="text-xs text-gray-700">{item.name}</span>
-            <span className="text-xs text-gray-500">{item.width}" × {item.height}"</span>
+            <span className="text-xs text-gray-500">{item.width}&quot; × {item.height}&quot;</span>
           </button>
         ))}
       </div>
