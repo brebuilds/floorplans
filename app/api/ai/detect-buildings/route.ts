@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { BuildingOutline } from '@/types';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   try {
     const { imageBase64 } = await request.json();
@@ -23,6 +19,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
     const detectionPrompt = `Analyze this site plan image and identify all building outlines. For each building, provide:
 1. A suggested name (e.g., "Building A", "Building 4141")

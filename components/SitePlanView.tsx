@@ -104,7 +104,7 @@ export default function SitePlanView() {
 
       // Update site plan with cleaned SVG (if available) or description
       updateSitePlan(sitePlan.id, {
-        cleanedSVG: result.cleanedSVG || null,
+        ...(result.cleanedSVG && { cleanedSVG: result.cleanedSVG }),
         // Store description for reference
         // In a full implementation, you'd parse this and generate SVG
       });

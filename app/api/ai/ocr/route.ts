@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { OCRResult } from '@/types';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   try {
     const { imageBase64 } = await request.json();
@@ -23,6 +19,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
     const ocrPrompt = `Identify and transcribe all handwritten or printed text in this sketch or site plan, including labels, unit numbers, room names, dimensions, and notes. For each text element, provide:
 1. The exact text content
