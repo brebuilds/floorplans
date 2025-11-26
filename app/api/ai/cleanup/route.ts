@@ -1,6 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+// Define the structure for parsed floorplan elements
+interface ParsedFloorplanElements {
+  rooms: Array<{
+    name: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>;
+  walls: Array<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    thickness?: number;
+  }>;
+  doors: Array<{
+    x: number;
+    y: number;
+    width: number;
+    rotation: number;
+    swing: 'left' | 'right';
+  }>;
+  windows: Array<{
+    x: number;
+    y: number;
+    width: number;
+    rotation: number;
+  }>;
+  labels: Array<{
+    text: string;
+    x: number;
+    y: number;
+    fontSize?: number;
+  }>;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { imageBase64, type } = await request.json();
@@ -23,17 +60,49 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
+    // JSON schema for structured output
+    const jsonSchema = `{
+  "rooms": [{ "name": "string", "x": number, "y": number, "width": number, "height": number }],
+  "walls": [{ "x1": number, "y1": number, "x2": number, "y2": number, "thickness": number }],
+  "doors": [{ "x": number, "y": number, "width": number, "rotation": number, "swing": "left"|"right" }],
+  "windows": [{ "x": number, "y": number, "width": number, "rotation": number }],
+  "labels": [{ "text": "string", "x": number, "y": number, "fontSize": number }]
+}`;
+
     // Determine the prompt based on type
     const cleanupPrompt = type === 'site-plan'
-      ? `Convert this rough site plan sketch into a clean architectural-style site plan. Preserve proportions exactly. Straighten building outlines, snap angles to 90°, remove jitter, unify line weights, simplify shapes, and clean up labels. Do not redesign or infer changes. Maintain user intent precisely. Return a detailed description of the cleaned floorplan structure that can be used to recreate it as SVG.`
-      : `Convert this rough sketch into a clean architectural-style floorplan. Preserve proportions exactly. Straighten walls, snap angles to 90°, remove jitter, unify line weights, simplify shapes, and convert hand-drawn doors/windows into standardized symbols. Do not redesign or infer changes. Maintain user intent precisely. Return a detailed description of the cleaned floorplan structure that can be used to recreate it as SVG.`;
+      ? `Analyze this site plan image and extract all architectural elements. Return a JSON object with the structure below. Use pixel coordinates based on a 1200x800 canvas. Straighten lines, snap angles to 90 degrees, and clean up the layout.
+
+JSON Schema:
+${jsonSchema}
+
+Important:
+- Estimate coordinates proportionally based on the image layout
+- Room coordinates should represent the top-left corner
+- Wall coordinates are start and end points
+- Door swing should be "left" or "right" based on hinge position
+- Include labels for any visible text in the image
+- Return ONLY valid JSON, no additional text`
+      : `Analyze this floorplan image and extract all architectural elements. Return a JSON object with the structure below. Use pixel coordinates based on a 1200x800 canvas. Straighten walls, snap angles to 90 degrees, and standardize door/window symbols.
+
+JSON Schema:
+${jsonSchema}
+
+Important:
+- Estimate coordinates proportionally based on the image layout
+- Room coordinates should represent the top-left corner
+- Wall coordinates are start and end points (thickness default 3)
+- Door width default is 30, window width default is 60
+- Door swing should be "left" or "right" based on hinge position
+- Include labels for room names and any visible measurements
+- Return ONLY valid JSON, no additional text`;
 
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o', // Use gpt-4o for vision
+      model: process.env.OPENAI_MODEL || 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: 'You are an expert architectural draftsman. Analyze floorplan images and provide detailed structural descriptions that can be converted to clean SVG floorplans.',
+          content: 'You are an expert architectural analyst. Analyze floorplan images and extract structural elements as JSON data. Always respond with valid JSON only, no markdown or additional text.',
         },
         {
           role: 'user',
@@ -45,28 +114,49 @@ export async function POST(request: NextRequest) {
             {
               type: 'image_url',
               image_url: {
-                url: imageBase64.startsWith('data:') 
-                  ? imageBase64 
+                url: imageBase64.startsWith('data:')
+                  ? imageBase64
                   : `data:image/png;base64,${imageBase64}`,
               },
             },
           ],
         },
       ],
-      max_tokens: 2000,
+      max_tokens: 4000,
     });
 
-    const description = response.choices[0]?.message?.content || '';
+    const content = response.choices[0]?.message?.content || '';
 
-    // For now, return the description. In a full implementation, you might:
-    // 1. Parse the description to extract structured data
-    // 2. Use another AI call or algorithm to generate SVG
-    // 3. Or use a vision model that can output structured data
+    // Try to parse the JSON response
+    let parsedElements: ParsedFloorplanElements | null = null;
+    let description = content;
+
+    try {
+      // Remove markdown code blocks if present
+      let jsonContent = content.trim();
+      if (jsonContent.startsWith('```json')) {
+        jsonContent = jsonContent.slice(7);
+      } else if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.slice(3);
+      }
+      if (jsonContent.endsWith('```')) {
+        jsonContent = jsonContent.slice(0, -3);
+      }
+      jsonContent = jsonContent.trim();
+
+      parsedElements = JSON.parse(jsonContent) as ParsedFloorplanElements;
+      description = 'Successfully parsed floorplan elements from image.';
+    } catch (parseError) {
+      // If parsing fails, return the raw description
+      console.warn('Failed to parse AI response as JSON:', parseError);
+      description = content;
+    }
 
     return NextResponse.json({
       success: true,
       description,
-      cleanedSVG: null, // Would be generated from description in full implementation
+      cleanedSVG: null,
+      parsedElements,
     });
   } catch (error: any) {
     console.error('AI cleanup error:', error);

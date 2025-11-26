@@ -7,10 +7,47 @@ import { OCRResult, BuildingOutline } from '@/types';
 
 const API_BASE = '/api/ai';
 
+export interface ParsedFloorplanElements {
+  rooms: Array<{
+    name: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>;
+  walls: Array<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    thickness?: number;
+  }>;
+  doors: Array<{
+    x: number;
+    y: number;
+    width: number;
+    rotation: number;
+    swing: 'left' | 'right';
+  }>;
+  windows: Array<{
+    x: number;
+    y: number;
+    width: number;
+    rotation: number;
+  }>;
+  labels: Array<{
+    text: string;
+    x: number;
+    y: number;
+    fontSize?: number;
+  }>;
+}
+
 export interface CleanupResponse {
   success: boolean;
   description: string;
   cleanedSVG?: string | null;
+  parsedElements?: ParsedFloorplanElements | null;
   error?: string;
 }
 

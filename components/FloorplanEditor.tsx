@@ -39,7 +39,7 @@ import VersionHistory from './VersionHistory';
 import PropertiesPanel from './PropertiesPanel';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import toast from 'react-hot-toast';
-import { cleanupImage, canvasToBase64 } from '@/lib/services/aiService';
+import { cleanupImage, canvasToBase64, ParsedFloorplanElements } from '@/lib/services/aiService';
 
 export default function FloorplanEditor() {
   const {
@@ -112,8 +112,8 @@ export default function FloorplanEditor() {
   const handleCleanup = async () => {
     if (!floorplan) return;
     setIsCleaning(true);
-    toast.loading('Cleaning floorplan...', { id: 'cleanup' });
-    
+    toast.loading('Analyzing floorplan...', { id: 'cleanup' });
+
     try {
       // Get canvas image
       const fabricCanvas = (window as any).fabricCanvas;
@@ -136,21 +136,113 @@ export default function FloorplanEditor() {
         return;
       }
 
-      // TODO: Parse the description and apply changes to canvas
-      // For now, we'll just show success
-      // In a full implementation, you would:
-      // 1. Parse the AI description
-      // 2. Generate SVG or structured data
-      // 3. Apply changes to the canvas
-      
-      toast.success('Floorplan cleaned! Check the description for details.', { id: 'cleanup' });
-      console.log('Cleanup description:', result.description);
-      
+      // Apply parsed elements to canvas if available
+      if (result.parsedElements) {
+        applyParsedElementsToCanvas(result.parsedElements, fabricCanvas);
+        toast.success('Floorplan cleaned and elements applied!', { id: 'cleanup' });
+      } else {
+        toast.success('Floorplan analyzed. See console for details.', { id: 'cleanup' });
+        console.log('Cleanup description:', result.description);
+      }
+
       setIsCleaning(false);
     } catch (error: any) {
       toast.error(error.message || 'Failed to cleanup floorplan', { id: 'cleanup' });
       setIsCleaning(false);
     }
+  };
+
+  // Apply parsed AI elements to the canvas
+  const applyParsedElementsToCanvas = (elements: ParsedFloorplanElements, _fabricCanvas: any) => {
+    // Generate unique IDs
+    const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Collect new elements
+    const newWalls: any[] = [];
+    const newRooms: any[] = [];
+    const newDoors: any[] = [];
+    const newWindows: any[] = [];
+    const newLabels: any[] = [];
+
+    // Process walls
+    elements.walls?.forEach((wall) => {
+      const wallData = {
+        id: generateId('wall'),
+        x1: wall.x1,
+        y1: wall.y1,
+        x2: wall.x2,
+        y2: wall.y2,
+        thickness: wall.thickness || 3,
+      };
+      newWalls.push(wallData);
+    });
+
+    // Process rooms
+    elements.rooms?.forEach((room) => {
+      const roomData = {
+        id: generateId('room'),
+        name: room.name || 'Room',
+        x: room.x,
+        y: room.y,
+        width: room.width,
+        height: room.height,
+      };
+      newRooms.push(roomData);
+    });
+
+    // Process doors
+    elements.doors?.forEach((door) => {
+      const doorData = {
+        id: generateId('door'),
+        x: door.x,
+        y: door.y,
+        width: door.width || 30,
+        rotation: door.rotation || 0,
+        swing: door.swing || 'left',
+      };
+      newDoors.push(doorData);
+    });
+
+    // Process windows
+    elements.windows?.forEach((win) => {
+      const windowData = {
+        id: generateId('window'),
+        x: win.x,
+        y: win.y,
+        width: win.width || 60,
+        rotation: win.rotation || 0,
+      };
+      newWindows.push(windowData);
+    });
+
+    // Process labels
+    elements.labels?.forEach((label) => {
+      const labelData = {
+        id: generateId('label'),
+        text: label.text,
+        x: label.x,
+        y: label.y,
+        fontSize: label.fontSize || 16,
+      };
+      newLabels.push(labelData);
+    });
+
+    // Update the floorplan with new elements
+    updateFloorplan(floorplan.id, {
+      walls: [...floorplan.walls, ...newWalls],
+      rooms: [...floorplan.rooms, ...newRooms],
+      doors: [...floorplan.doors, ...newDoors],
+      windows: [...floorplan.windows, ...newWindows],
+      labels: [...floorplan.labels, ...newLabels],
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Trigger canvas refresh
+    window.dispatchEvent(new CustomEvent('floorplanUpdated'));
+
+    // Log summary
+    const totalElements = newWalls.length + newRooms.length + newDoors.length + newWindows.length + newLabels.length;
+    console.log(`Applied ${totalElements} elements: ${newWalls.length} walls, ${newRooms.length} rooms, ${newDoors.length} doors, ${newWindows.length} windows, ${newLabels.length} labels`);
   };
 
   return (
