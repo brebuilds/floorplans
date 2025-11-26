@@ -21,8 +21,8 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const { editorState, updateFloorplan } = useStore();
   const { addToHistory, undo, redo, canUndo, canRedo } = useHistoryStore();
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const isDrawingRef = useRef(false);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const [selectedObjects, setSelectedObjects] = useState<fabric.Object[]>([]);
   const [editingRoom, setEditingRoom] = useState<string | null>(null);
   const objectMapRef = useRef<Map<string, fabric.Object>>(new Map());
@@ -668,18 +668,19 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
       }
       
       if (editorState.currentTool === 'select') return;
-      
+
       const pointer = canvas.getPointer(e.e);
       const snappedPoint = {
         x: snapToGrid(pointer.x),
         y: snapToGrid(pointer.y),
       };
-      setStartPoint(snappedPoint);
-      setIsDrawing(true);
+      startPointRef.current = snappedPoint;
+      isDrawingRef.current = true;
     });
 
     canvas.on('mouse:move', (e) => {
-      if (!isDrawing || !startPoint) return;
+      if (!isDrawingRef.current || !startPointRef.current) return;
+      const startPoint = startPointRef.current;
       const pointer = canvas.getPointer(e.e);
       const snappedPoint = {
         x: snapToGrid(pointer.x),
@@ -709,17 +710,17 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
         });
         (line as any).isTemp = true;
         canvas.add(line);
-        
+
         const dx = snappedPoint.x - startPoint.x;
         const dy = snappedPoint.y - startPoint.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const inches = Math.round(distance);
         const feet = Math.floor(inches / 12);
         const remainingInches = inches % 12;
-        const measurementText = remainingInches > 0 
+        const measurementText = remainingInches > 0
           ? `${feet}' ${remainingInches}"`
           : `${feet}'`;
-        
+
         const midX = (startPoint.x + snappedPoint.x) / 2;
         const midY = (startPoint.y + snappedPoint.y) / 2;
         const text = new fabric.Text(measurementText, {
@@ -755,7 +756,8 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
     });
 
     canvas.on('mouse:up', (e) => {
-      if (!isDrawing || !startPoint) return;
+      if (!isDrawingRef.current || !startPointRef.current) return;
+      const startPoint = startPointRef.current;
       const pointer = canvas.getPointer(e.e);
       const snappedPoint = {
         x: snapToGrid(pointer.x),
@@ -850,7 +852,7 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
           selectable: true,
           evented: true,
         });
-        
+
         const doorRect = new fabric.Rect({
           width: door.width,
           height: 5,
@@ -876,7 +878,7 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
         (group as any).elementId = door.id;
         (group as any).elementType = 'door';
         (group as any).doorSwing = door.swing;
-        
+
         canvas.add(group);
         objectMapRef.current.set(door.id, group);
         updateFloorplan(currentFloorplan.id, {
@@ -945,7 +947,7 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
         const inches = Math.round(distance);
         const feet = Math.floor(inches / 12);
         const remainingInches = inches % 12;
-        const measurementText = remainingInches > 0 
+        const measurementText = remainingInches > 0
           ? `${feet}' ${remainingInches}"`
           : `${feet}'`;
 
@@ -979,8 +981,8 @@ export default function DrawingCanvas({ floorplan, zoomLevel = 1, onZoomChange, 
         saveToHistory();
       }
 
-      setIsDrawing(false);
-      setStartPoint(null);
+      isDrawingRef.current = false;
+      startPointRef.current = null;
       canvas.renderAll();
     });
   };

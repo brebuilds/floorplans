@@ -334,12 +334,12 @@ export default function FloorplanEditor() {
         )}
         
         {/* Left Toolbar */}
-        <div className="bg-white border-r border-gray-200 p-3 w-20 flex flex-col items-center gap-2">
+        <div className="bg-white border-r border-gray-200 p-3 w-24 flex flex-col items-center gap-2">
           {tools.map((tool) => (
             <button
               key={tool.id}
               onClick={() => setEditorTool(tool.id)}
-              className={`p-3 rounded-lg transition-colors ${
+              className={`p-2 rounded-lg transition-colors flex flex-col items-center gap-1 w-full ${
                 editorState.currentTool === tool.id
                   ? 'bg-indigo-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
@@ -347,6 +347,9 @@ export default function FloorplanEditor() {
               title={tool.label}
             >
               {tool.icon}
+              <span className="text-xs font-medium truncate w-full text-center">
+                {tool.label}
+              </span>
             </button>
           ))}
         </div>

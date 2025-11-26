@@ -61,7 +61,7 @@ This guide covers deploying Floorplans Studio to various platforms.
 
 1. **Sign up:**
    - Go to [netlify.com](https://netlify.com)
-   - Sign up with GitHub
+   - Sign up with GitHubl
 
 2. **Import Project:**
    - Click "Add new site" → "Import an existing project"
